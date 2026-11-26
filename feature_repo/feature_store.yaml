@@ -1,0 +1,11 @@
+project: taxi_features
+# Relative to this folder. A file registry: no server, one file next to the data.
+registry: ../data/registry.db
+provider: local
+offline_store:
+  type: file
+online_store:
+  type: redis
+  # Friday: the API container reaches Redis as redis:6379, so this becomes an environment variable then.
+  connection_string: localhost:6379
+entity_key_serialization_version: 3
