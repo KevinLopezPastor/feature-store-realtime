@@ -1,0 +1,15 @@
+# Week 2 adds Redis and the API. MLflow and Postgres (artifacts in S3) keep running from week 1's repo (`make up` there).
+services:
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 5
+  # api:            # uncomment on Friday, when service/app.py exists
+  #   build: .
+  #   env_file: .env
+  #   ports: ["8000:8000"]
+  #   depends_on:
+  #     redis: { condition: service_healthy }

@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+.ruff_cache/
+.pytest_cache/
+.env
+# Rebuilt by `make features`: Parquet aggregates and the Feast registry.
+data/
+*.db
+.claude/
+CLAUDE.md
