@@ -2,7 +2,7 @@
 
 ## Done when
 
-- [ ] Training uses `get_historical_features` with no future leakage (test asserts timestamps)
+- [x] Training uses `get_historical_features` with no future leakage (test asserts timestamps). Proof: `uv run pytest tests/test_training_set.py -q -k oracle` (1 passed 2026-11-26; full suite 10 passed). The test compares Feast's output with an independent Parquet lookup (latest stamp <= request, age <= TTL), including exact-stamp, exact-TTL, expired and twin requests.
 - [ ] `/predict` p95 under 50 ms locally at 50 requests per second
 - [ ] Skew test passes in CI
 - [ ] README shows the archify PNG and the latency table
@@ -71,11 +71,15 @@
 **Done**
 - Entity dataframe, chunked retrieval (`CHUNK_SIZE` 1,000), shared `localize` and `impute`, `assemble_training_set`; 10 tests pass (causal oracle, row preservation, impute edge cases).
 - `jobs/retrain.py`: Feast model vs 7-feature control vs week 1 `@champion` on the same sampled rows; paired error statistics; February holdout; separate registry entry; promotion gate.
-- Results and reading in "Feature design decisions" above. Registry: week 1's entry untouched (20 versions, `@champion` = v2); Feast entry has v1 to v3, no alias yet.
+- Results and reading in "Feature design decisions" above. Registry: week 1's entry untouched (20 versions, `@champion` = v2); Feast entry has v1 to v3, no alias confirmed yet.
+- Week 1 packaging fixed (option a): `schemas/` moved to `src/taxi/schemas/` in `mlops-reproducible-pipeline` (not committed there); week 2 imports and tests need no `PYTHONPATH` (details in the carry-over section).
+- First commits pushed to `origin/main` (repo-local noreply identity, `Co-Authored-By` trailer): `64fb43b` scaffold ([Makefile](../../Makefile), [docker-compose.yml](../../docker-compose.yml), [pyproject.toml](../../pyproject.toml)), `62601ab` [feature_repo/](../../feature_repo/) and [jobs/compute_aggregates.py](../../jobs/compute_aggregates.py), `ff8408e` [jobs/build_training_set.py](../../jobs/build_training_set.py), [jobs/retrain.py](../../jobs/retrain.py), [tests/](../../tests/), `373901f` docs and notebook, `8c54363` materialize. Runs from now on carry a real `lineage.git_commit` tag.
+- Done-when box 1 ticked (see top).
 
 **Who wrote what**
 - Kevin: `localize`, `impute`/`expire_stale`, `fetch_features`, `assemble_training_set`, tests, `_stratified_sample`, `sample_trips`, `score_champion`, `decide_promotion`, `paired_error_stats`, `feb_holdout`, the registry decision (own entry, option A).
-- Claude: scaffolds, `params.yaml` copy, the `"split"` key fix in `feb_holdout` and the wiring in `main()`, probes, review, PROGRESS edits.
+- Claude: scaffolds, `params.yaml` copy, the `"split"` key fix in `feb_holdout` and the wiring in `main()`, the week 1 `schemas` move (at Kevin's request), probes, review, PROGRESS edits.
+- Kevin also: the registry decisions (own entry; option A with a `serving` alias), the packaging choice (move into the package), the commit split and push.
 
 **Lessons**
 - Feast silently drops expired rows and collapses twin entity rows; a merge-back with row-count and uniqueness checks was the only visible defence. Same family as week 1's silent corruption.
@@ -83,14 +87,15 @@
 - A pilot on a small sample can show a sign that flips at 3x the data; pair the errors and read the SE before concluding.
 
 **Open**
-- Set `serving` alias on the chosen version (v3 now) before Friday; the API loads it.
+- Set the `serving` alias on v3 (command given, output not confirmed); the API loads it. Verify with `get_model_version_by_alias('nyc-taxi-duration-lgbm-feast', 'serving')`.
+- Week 1 repo: commit the `schemas` move; first read its `uv.lock` diff (about 2,000 lines removed, mostly from narrowing Python to below 3.13, not checked) and decide whether `uv.lock`/`pyproject.toml` edits go in the same commit. `dvc repro` there re-runs once.
+- Decide whether `.claude/agent-memory/` stays out of the public repo.
 - `localize()` NaT handling; `pd.to_numeric` before `fillna` in `impute`.
 - Unit tests for the aggregates job (hand-computed answers); toy tests for `paired_error_stats` and `score_champion`.
-- Packaging decision (a/b) before Saturday's CI; first git commit (lineage tag says `none`).
-- Dtypes Float32 vs float64 for the skew test.
+- Dtypes Float32 vs float64 for the skew test (Saturday).
 
 **Next step**
-- Friday: FastAPI `/predict` with lifespan loading the `serving` model and the `FeatureStore`, as-of time replay, zone id validation (1 to 265), the shared helper, k6 script.
+- Friday: FastAPI `/predict` ([service/app.py](../../service/app.py), to create). First: confirm `serving` -> v3 (command above), then agree the design before code: lifespan loads `models:/nyc-taxi-duration-lgbm-feast@serving` and the `FeatureStore` once; request takes zone id (validated 1 to 265), pickup time as the as-of time (replay), and the 7 week 1 inputs; features come from `get_online_features` through the shared `impute`/`expire_stale` helper. Run `make materialize` first so Redis is loaded.
 
 ### 2026-11-03: Wed block done (scaffold, aggregates job, Feast definitions, apply, materialize, TTL probes)
 
